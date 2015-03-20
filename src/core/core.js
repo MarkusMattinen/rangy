@@ -20,25 +20,7 @@
         root.rangy = factory();
     }
 })(function() {
-    var log = log4javascript.getLogger("rangy.core");
-
     var OBJECT = "object", FUNCTION = "function", UNDEFINED = "undefined";
-
-    // Minimal set of properties required for DOM Level 2 Range compliance. Comparison constants such as START_TO_START
-    // are omitted because ranges in KHTML do not have them but otherwise work perfectly well. See issue 113.
-    var domRangeProperties = ["startContainer", "startOffset", "endContainer", "endOffset", "collapsed",
-        "commonAncestorContainer"];
-
-    // Minimal set of methods required for DOM Level 2 Range compliance
-    var domRangeMethods = ["setStart", "setStartBefore", "setStartAfter", "setEnd", "setEndBefore",
-        "setEndAfter", "collapse", "selectNode", "selectNodeContents", "compareBoundaryPoints", "deleteContents",
-        "extractContents", "cloneContents", "insertNode", "surroundContents", "cloneRange", "toString", "detach"];
-
-    var textRangeProperties = ["boundingHeight", "boundingLeft", "boundingTop", "boundingWidth", "htmlText", "text"];
-
-    // Subset of TextRange's full set of methods that we're interested in
-    var textRangeMethods = ["collapse", "compareEndPoints", "duplicate", "moveToElementText", "parentElement", "select",
-        "setEndPoint", "getBoundingClientRect"];
 
     /*----------------------------------------------------------------------------------------------------------------*/
 
@@ -57,54 +39,21 @@
         return typeof o[p] != UNDEFINED;
     }
 
-    // Creates a convenience function to save verbose repeated calls to tests functions
-    function createMultiplePropertyTest(testFunc) {
-        return function(o, props) {
-            var i = props.length;
-            while (i--) {
-                if (!testFunc(o, props[i])) {
-                    return false;
-                }
-            }
-            return true;
-        };
-    }
-
-    // Next trio of functions are a convenience to save verbose repeated calls to previous two functions
-    var areHostMethods = createMultiplePropertyTest(isHostMethod);
-    var areHostObjects = createMultiplePropertyTest(isHostObject);
-    var areHostProperties = createMultiplePropertyTest(isHostProperty);
-
-    function isTextRange(range) {
-        return range && areHostMethods(range, textRangeMethods) && areHostProperties(range, textRangeProperties);
-    }
-
     function getBody(doc) {
         return isHostObject(doc, "body") ? doc.body : doc.getElementsByTagName("body")[0];
     }
 
-    var forEach = [].forEach ?
+    var forEach =
         function(arr, func) {
             arr.forEach(func);
-        } :
-        function(arr, func) {
-            for (var i = 0, len = arr.length; i < len; ++i) {
-                func(arr[i], i);
-            }
         };
 
     var modules = {};
-
-    var isBrowser = (typeof window != UNDEFINED && typeof document != UNDEFINED);
 
     var util = {
         isHostMethod: isHostMethod,
         isHostObject: isHostObject,
         isHostProperty: isHostProperty,
-        areHostMethods: areHostMethods,
-        areHostObjects: areHostObjects,
-        areHostProperties: areHostProperties,
-        isTextRange: isTextRange,
         getBody: getBody,
         forEach: forEach
     };
@@ -112,50 +61,16 @@
     var api = {
         version: "%%build:version%%",
         initialized: false,
-        isBrowser: isBrowser,
         supported: true,
         util: util,
-        features: {},
         modules: modules,
         config: {
-            alertOnFail: true,
-            alertOnWarn: false,
-            preferTextRange: false,
             autoInitialize: (typeof rangyAutoInitialize == UNDEFINED) ? true : rangyAutoInitialize
         }
     };
 
-    function consoleLog(msg) {
-        if (typeof console != UNDEFINED && isHostMethod(console, "log")) {
-            console.log(msg);
-        }
-    }
-
-    function alertOrLog(msg, shouldAlert) {
-        if (isBrowser && shouldAlert) {
-            alert(msg);
-        } else  {
-            consoleLog(msg);
-        }
-    }
-
-    function fail(reason) {
-        api.initialized = true;
-        api.supported = false;
-        alertOrLog("Rangy is not supported in this environment. Reason: " + reason, api.config.alertOnFail);
-    }
-
-    api.fail = fail;
-
-    function warn(msg) {
-        alertOrLog("Rangy warning: " + msg, api.config.alertOnWarn);
-    }
-
-    api.warn = warn;
-
     // Add utility extend() method
     var extend;
-    if ({}.hasOwnProperty) {
         util.extend = extend = function(obj, props, deep) {
             var o, p;
             for (var i in props) {
@@ -168,10 +83,6 @@
                     obj[i] = p;
                 }
             }
-            // Special case for toString, which does not show up in for...in loops in IE <= 8
-            if (props.hasOwnProperty("toString")) {
-                obj.toString = props.toString;
-            }
             return obj;
         };
 
@@ -183,41 +94,14 @@
             }
             return options;
         };
-    } else {
-        fail("hasOwnProperty not supported");
-    }
 
-    // Test whether we're in a browser and bail out if not
-    if (!isBrowser) {
-        fail("Rangy can only run in a browser");
-    }
-
-    // Test whether Array.prototype.slice can be relied on for NodeLists and use an alternative toArray() if not
     (function() {
         var toArray;
 
-        if (isBrowser) {
-            var el = document.createElement("div");
-            el.appendChild(document.createElement("span"));
             var slice = [].slice;
-            try {
-                if (slice.call(el.childNodes, 0)[0].nodeType == 1) {
                     toArray = function(arrayLike) {
                         return slice.call(arrayLike, 0);
                     };
-                }
-            } catch (e) {}
-        }
-
-        if (!toArray) {
-            toArray = function(arrayLike) {
-                var arr = [];
-                for (var i = 0, len = arrayLike.length; i < len; ++i) {
-                    arr[i] = arrayLike[i];
-                }
-                return arr;
-            };
-        }
 
         util.toArray = toArray;
     })();
@@ -225,68 +109,19 @@
     // Very simple event handler wrapper function that doesn't attempt to solve issues such as "this" handling or
     // normalization of event properties
     var addListener;
-    if (isBrowser) {
-        if (isHostMethod(document, "addEventListener")) {
             addListener = function(obj, eventType, listener) {
                 obj.addEventListener(eventType, listener, false);
             };
-        } else if (isHostMethod(document, "attachEvent")) {
-            addListener = function(obj, eventType, listener) {
-                obj.attachEvent("on" + eventType, listener);
-            };
-        } else {
-            fail("Document does not have required addEventListener or attachEvent method");
-        }
 
         util.addListener = addListener;
-    }
-
-    var initListeners = [];
-
-    function getErrorDesc(ex) {
-        return ex.message || ex.description || String(ex);
-    }
 
     // Initialization
     function init() {
-        if (!isBrowser || api.initialized) {
-            return;
-        }
-        var testRange;
-        var implementsDomRange = false, implementsTextRange = false;
-
-        // First, perform basic feature tests
-
-        if (isHostMethod(document, "createRange")) {
-            testRange = document.createRange();
-            if (areHostMethods(testRange, domRangeMethods) && areHostProperties(testRange, domRangeProperties)) {
-                implementsDomRange = true;
-            }
-        }
-
-        var body = getBody(document);
-        if (!body || body.nodeName.toLowerCase() != "body") {
-            fail("No body element found");
-            return;
-        }
-
-        if (body && isHostMethod(body, "createTextRange")) {
-            testRange = body.createTextRange();
-            if (isTextRange(testRange)) {
-                implementsTextRange = true;
-            }
-        }
-
-        if (!implementsDomRange && !implementsTextRange) {
-            fail("Neither Range nor TextRange are available");
+        if (api.initialized) {
             return;
         }
 
         api.initialized = true;
-        api.features = {
-            implementsDomRange: implementsDomRange,
-            implementsTextRange: implementsTextRange
-        };
 
         // Initialize modules
         var module, errorMessage;
@@ -295,50 +130,10 @@
                 module.init(module, api);
             }
         }
-
-        // Call init listeners
-        for (var i = 0, len = initListeners.length; i < len; ++i) {
-            try {
-                initListeners[i](api);
-            } catch (ex) {
-                errorMessage = "Rangy init listener threw an exception. Continuing. Detail: " + getErrorDesc(ex);
-                log.error(errorMessage, ex);
-                consoleLog(errorMessage);
-            }
-        }
     }
 
     // Allow external scripts to initialize this library in case it's loaded after the document has loaded
     api.init = init;
-
-    // Execute listener immediately if already initialized
-    api.addInitListener = function(listener) {
-        if (api.initialized) {
-            listener(api);
-        } else {
-            initListeners.push(listener);
-        }
-    };
-
-    var shimListeners = [];
-
-    api.addShimListener = function(listener) {
-        shimListeners.push(listener);
-    };
-
-    function shim(win) {
-        win = win || window;
-        init();
-
-        // Notify listeners
-        for (var i = 0, len = shimListeners.length; i < len; ++i) {
-            shimListeners[i](win);
-        }
-    }
-
-    if (isBrowser) {
-        api.shim = api.createMissingNativeApi = shim;
-    }
 
     function Module(name, dependencies, initializer) {
         this.name = name;
@@ -355,57 +150,21 @@
                 moduleName = requiredModuleNames[i];
 
                 requiredModule = modules[moduleName];
-                if (!requiredModule || !(requiredModule instanceof Module)) {
-                    throw new Error("required module '" + moduleName + "' not found");
-                }
 
                 requiredModule.init();
-
-                if (!requiredModule.supported) {
-                    throw new Error("required module '" + moduleName + "' not supported");
-                }
             }
 
             // Now run initializer
             this.initializer(this);
         },
-
-        fail: function(reason) {
-            this.initialized = true;
-            this.supported = false;
-            log.error("Module '" + this.name + "' failed to load: " + reason);
-            throw new Error("Module '" + this.name + "' failed to load: " + reason);
-        },
-
-        warn: function(msg) {
-            api.warn("Module " + this.name + ": " + msg);
-        },
-
-        deprecationNotice: function(deprecated, replacement) {
-            api.warn("DEPRECATED: " + deprecated + " in module " + this.name + "is deprecated. Please use " +
-                replacement + " instead");
-        },
-
-        createError: function(msg) {
-            return new Error("Error in Rangy " + this.name + " module: " + msg);
-        }
     };
 
     function createModule(name, dependencies, initFunc) {
         var newModule = new Module(name, dependencies, function(module) {
             if (!module.initialized) {
                 module.initialized = true;
-                try {
                     initFunc(api, module);
                     module.supported = true;
-                } catch (ex) {
-                    var errorMessage = "Module '" + name + "' failed to load: " + getErrorDesc(ex);
-                    log.error(errorMessage, ex);
-                    consoleLog(errorMessage);
-                    if (ex.stack) {
-                        consoleLog(ex.stack);
-                    }
-                }
             }
         });
         modules[name] = newModule;
@@ -413,15 +172,9 @@
     }
 
     api.createModule = function(name) {
-        // Allow 2 or 3 arguments (second argument is an optional array of dependencies)
         var initFunc, dependencies;
-        if (arguments.length == 2) {
-            initFunc = arguments[1];
-            dependencies = [];
-        } else {
             initFunc = arguments[2];
             dependencies = arguments[1];
-        }
 
         var module = createModule(name, dependencies, initFunc);
 
@@ -468,7 +221,6 @@
     var docReady = false;
 
     var loadHandler = function(e) {
-        log.info("loadHandler triggered by " + (e ? e.type + " event" : "document already loaded"));
         if (!docReady) {
             docReady = true;
             if (!api.initialized && api.config.autoInitialize) {
@@ -477,7 +229,6 @@
         }
     };
 
-    if (isBrowser) {
         // Test whether the document has already been loaded and initialize immediately if so
         if (document.readyState == "complete") {
             loadHandler();
@@ -489,7 +240,6 @@
             // Add a fallback in case the DOMContentLoaded event isn't supported
             addListener(window, "load", loadHandler);
         }
-    }
 
     return api;
 }, this);

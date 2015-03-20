@@ -20,8 +20,6 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
     var isHtmlNamespace = dom.isHtmlNamespace;
     var forEach = api.util.forEach;
 
-    var log = log4javascript.getLogger("rangy.classapplier");
-
     var defaultTagName = "span";
 
     function each(obj, func) {
@@ -40,7 +38,6 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
     }
 
     var hasClass, addClass, removeClass;
-    if (api.util.isHostObject(document.createElement("div"), "classList")) {
         hasClass = function(el, className) {
             return el.classList.contains(className);
         };
@@ -52,33 +49,6 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
         removeClass = function(el, className) {
             return el.classList.remove(className);
         };
-    } else {
-        hasClass = function(el, className) {
-            return el.className && new RegExp("(?:^|\\s)" + className + "(?:\\s|$)").test(el.className);
-        };
-
-        addClass = function(el, className) {
-            if (el.className) {
-                if (!hasClass(el, className)) {
-                    el.className += " " + className;
-                }
-            } else {
-                el.className = className;
-            }
-        };
-
-        removeClass = (function() {
-            function replacer(matched, whiteSpaceBefore, whiteSpaceAfter) {
-                return (whiteSpaceBefore && whiteSpaceAfter) ? " " : "";
-            }
-
-            return function(el, className) {
-                if (el.className) {
-                    el.className = el.className.replace(new RegExp("(^|\\s)" + className + "(\\s|$)"), replacer);
-                }
-            };
-        })();
-    }
 
     function sortClassName(className) {
         return className && className.split(/\s+/).sort().join(" ");
@@ -124,14 +94,12 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
     }
 
     function movePositionWhenRemovingNode(position, parentNode, index) {
-        log.debug("movePositionWhenRemovingNode " + position, position.node == parentNode, position.offset, index)
         if (position.node == parentNode && position.offset > index) {
             --position.offset;
         }
     }
 
     function movePreservingPositions(node, newParent, newIndex, positionsToPreserve) {
-        log.group("movePreservingPositions " + dom.inspectNode(node) + " to index " + newIndex + " in " + dom.inspectNode(newParent), positionsToPreserve);
         // For convenience, allow newIndex to be -1 to mean "insert at the end".
         if (newIndex == -1) {
             newIndex = newParent.childNodes.length;
@@ -150,12 +118,9 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
         } else {
             newParent.insertBefore(node, newParent.childNodes[newIndex]);
         }
-        log.groupEnd();
     }
 
     function removePreservingPositions(node, positionsToPreserve) {
-        log.group("removePreservingPositions " + dom.inspectNode(node), positionsToPreserve);
-
         var oldParent = node.parentNode;
         var oldIndex = dom.getNodeIndex(node);
 
@@ -164,7 +129,6 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
         });
 
         node.parentNode.removeChild(node);
-        log.groupEnd();
     }
 
     function moveChildrenPreservingPositions(node, newParent, newIndex, removeNode, positionsToPreserve) {
@@ -240,16 +204,8 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
 
     var getComputedStyleProperty = dom.getComputedStyleProperty;
     var isEditableElement = (function() {
-        var testEl = document.createElement("div");
-        return typeof testEl.isContentEditable == "boolean" ?
-            function (node) {
+            return function(node) {
                 return node && node.nodeType == 1 && node.isContentEditable;
-            } :
-            function (node) {
-                if (!node || node.nodeType != 1 || node.contentEditable == "false") {
-                    return false;
-                }
-                return node.contentEditable == "true" || isEditableElement(node.parentNode);
             };
     })();
 
@@ -336,7 +292,6 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
         var splitAtStart = (descendantOffset == 0);
 
         if (dom.isAncestorOf(descendantNode, node)) {
-            log.info("splitNodeAt(): Descendant is ancestor of node");
             return node;
         }
 
@@ -346,9 +301,6 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
                 descendantOffset = descendantIndex;
             } else if (descendantOffset == descendantNode.length) {
                 descendantOffset = descendantIndex + 1;
-            } else {
-                throw module.createError("splitNodeAt() should not be called with offset in the middle of a data node (" +
-                    descendantOffset + " in " + descendantNode.data);
             }
             descendantNode = descendantNode.parentNode;
         }
@@ -404,7 +356,6 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
             } else if (checkParentElement) {
                 // Compare text node parent element with its sibling
                 adjacentNode = el[siblingPropName];
-                log.info("adjacentNode: " + adjacentNode);
                 if (adjacentNode && adjacentNode.nodeType == 1 && areElementsMergeable(el, adjacentNode)) {
                     var adjacentNodeChild = adjacentNode[forward ? "firstChild" : "lastChild"];
                     if (adjacentNodeChild && adjacentNodeChild.nodeType == 3) {
@@ -665,7 +616,6 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
 
         // Normalizes nodes after applying a class to a Range.
         postApply: function(textNodes, range, positionsToPreserve, isUndo) {
-            log.group("postApply " + range.toHtml());
             var firstNode = textNodes[0], lastNode = textNodes[textNodes.length - 1];
 
             var merges = [], currentMerge;
@@ -678,7 +628,6 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
             // Check for every required merge and create a Merge object for each
             forEach(textNodes, function(textNode) {
                 precedingTextNode = getPreviousMergeableTextNode(textNode, !isUndo);
-                log.debug("Checking for merge. text node: " + textNode.data + ", parent: " + dom.inspectNode(textNode.parentNode) + ", preceding: " + dom.inspectNode(precedingTextNode));
                 if (precedingTextNode) {
                     if (!currentMerge) {
                         currentMerge = new Merge(precedingTextNode);
@@ -711,17 +660,13 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
 
             // Apply the merges
             if (merges.length) {
-                log.info("Merging. Merges:", merges);
                 for (i = 0, len = merges.length; i < len; ++i) {
                     merges[i].doMerge(positionsToPreserve);
                 }
-                log.info(rangeStartNode.nodeValue, rangeStartOffset, rangeEndNode.nodeValue, rangeEndOffset);
 
                 // Set the range boundaries
                 range.setStartAndEnd(rangeStartNode, rangeStartOffset, rangeEndNode, rangeEndOffset);
-                log.info("Range after merge: " + range.inspect());
             }
-            log.groupEnd();
         },
 
         createContainer: function(doc) {
@@ -763,8 +708,6 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
         },
 
         applyToTextNode: function(textNode, positionsToPreserve) {
-            log.group("Apply class '" + this.className + "'. textNode: " + textNode.data);
-            log.info("Apply class  '" + this.className + "'. textNode: " + textNode.data);
             var parent = textNode.parentNode;
             if (parent.childNodes.length == 1 &&
                     this.useExistingElements &&
@@ -779,7 +722,6 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
                 textNode.parentNode.insertBefore(el, textNode);
                 el.appendChild(textNode);
             }
-            log.groupEnd();
         },
 
         isRemovable: function(el) {
@@ -809,7 +751,6 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
             var positionsToPreserve = getRangeBoundaries(rangesToPreserve);
 
             forEach(nodesToRemove, function(node) {
-                log.debug("Removing empty container " + dom.inspectNode(node));
                 removePreservingPositions(node, positionsToPreserve);
             });
 
@@ -817,41 +758,14 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
             updateRangesFromBoundaries(rangesToPreserve, positionsToPreserve);
         },
 
-        undoToTextNode: function(textNode, range, ancestorWithClass, positionsToPreserve) {
-            log.info("undoToTextNode", dom.inspectNode(textNode), range.inspect(), dom.inspectNode(ancestorWithClass), range.containsNode(ancestorWithClass));
-            if (!range.containsNode(ancestorWithClass)) {
-                // Split out the portion of the ancestor from which we can remove the class
-                //var parent = ancestorWithClass.parentNode, index = dom.getNodeIndex(ancestorWithClass);
-                var ancestorRange = range.cloneRange();
-                ancestorRange.selectNode(ancestorWithClass);
-                log.info("range end in ancestor " + ancestorRange.isPointInRange(range.endContainer, range.endOffset) + ", isSplitPoint " + isSplitPoint(range.endContainer, range.endOffset));
-                if (ancestorRange.isPointInRange(range.endContainer, range.endOffset)) {
-                    splitNodeAt(ancestorWithClass, range.endContainer, range.endOffset, positionsToPreserve);
-                    range.setEndAfter(ancestorWithClass);
-                }
-                if (ancestorRange.isPointInRange(range.startContainer, range.startOffset)) {
-                    ancestorWithClass = splitNodeAt(ancestorWithClass, range.startContainer, range.startOffset, positionsToPreserve);
-                }
-            }
-
-            log.info("isRemovable", this.isRemovable(ancestorWithClass), dom.inspectNode(ancestorWithClass), "'" + ancestorWithClass.innerHTML + "'", "'" + ancestorWithClass.parentNode.innerHTML + "'");
-            if (this.isRemovable(ancestorWithClass)) {
-                replaceWithOwnChildrenPreservingPositions(ancestorWithClass, positionsToPreserve);
-            } else {
-                removeClass(ancestorWithClass, this.className);
-            }
-        },
-
         splitAncestorWithClass: function(container, offset, positionsToPreserve) {
             var ancestorWithClass = this.getSelfOrAncestorWithClass(container);
             if (ancestorWithClass) {
-                log.info("splitAncestorWithClass", dom.inspectNode(ancestorWithClass), dom.inspectNode(container), offset);
                 splitNodeAt(ancestorWithClass, container, offset, positionsToPreserve);
             }
         },
 
         undoToAncestor: function(ancestorWithClass, positionsToPreserve) {
-            log.info("isRemovable", this.isRemovable(ancestorWithClass), dom.inspectNode(ancestorWithClass), "'" + ancestorWithClass.innerHTML + "'", "'" + ancestorWithClass.parentNode.innerHTML + "'");
             if (this.isRemovable(ancestorWithClass)) {
                 replaceWithOwnChildrenPreservingPositions(ancestorWithClass, positionsToPreserve);
             } else {
@@ -877,7 +791,6 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
 
             if (textNodes.length) {
                 forEach(textNodes, function(textNode) {
-                    log.info("textnode " + textNode.data + " is ignorable: " + applier.isIgnorableWhiteSpaceNode(textNode));
                     if (!applier.isIgnorableWhiteSpaceNode(textNode) && !applier.getSelfOrAncestorWithClass(textNode) &&
                             applier.isModifiable(textNode)) {
                         applier.applyToTextNode(textNode, positionsToPreserve);
@@ -901,34 +814,11 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
             });
         },
 
-        applyToRanges: function(ranges) {
-            log.group("applyToRanges");
-
-            var i = ranges.length;
-            while (i--) {
-                this.applyToRange(ranges[i], ranges);
-            }
-
-            log.groupEnd();
-
-            return ranges;
-        },
-
-        applyToSelection: function(win) {
-            log.group("applyToSelection");
-            var sel = api.getSelection(win);
-            log.info("applyToSelection " + sel.inspect());
-            sel.setRanges( this.applyToRanges(sel.getAllRanges()) );
-            log.groupEnd();
-        },
-
         undoToRange: function(range, rangesToPreserve) {
             var applier = this;
             // Create an array of range boundaries to preserve
             rangesToPreserve = rangesToPreserve || [];
             var positionsToPreserve = getRangeBoundaries(rangesToPreserve);
-
-            log.info("undoToRange " + range.inspect(), positionsToPreserve);
 
             range.splitBoundariesPreservingPositions(positionsToPreserve);
 
@@ -954,8 +844,6 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
                 // Ensure the range is still valid
                 range.setStartAndEnd(textNodes[0], 0, lastTextNode, lastTextNode.length);
 
-                log.info("Undo set range to '" + textNodes[0].data + "', '" + textNode.data + "'");
-
                 if (applier.normalize) {
                     applier.postApply(textNodes, range, positionsToPreserve, true);
                 }
@@ -972,67 +860,6 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
             });
         },
 
-        undoToRanges: function(ranges) {
-            // Get ranges returned in document order
-            var i = ranges.length;
-
-            while (i--) {
-                this.undoToRange(ranges[i], ranges);
-            }
-            log.groupEnd();
-
-            return ranges;
-        },
-
-        undoToSelection: function(win) {
-            var sel = api.getSelection(win);
-            var ranges = api.getSelection(win).getAllRanges();
-            this.undoToRanges(ranges);
-            sel.setRanges(ranges);
-        },
-
-        isAppliedToRange: function(range) {
-            if (range.collapsed || range.toString() == "") {
-                return !!this.getSelfOrAncestorWithClass(range.commonAncestorContainer);
-            } else {
-                var textNodes = range.getNodes( [3] );
-                if (textNodes.length)
-                for (var i = 0, textNode; textNode = textNodes[i++]; ) {
-                    if (!this.isIgnorableWhiteSpaceNode(textNode) && rangeSelectsAnyText(range, textNode) &&
-                            this.isModifiable(textNode) && !this.getSelfOrAncestorWithClass(textNode)) {
-                        return false;
-                    }
-                }
-                return true;
-            }
-        },
-
-        isAppliedToRanges: function(ranges) {
-            var i = ranges.length;
-            if (i == 0) {
-                return false;
-            }
-            while (i--) {
-                if (!this.isAppliedToRange(ranges[i])) {
-                    return false;
-                }
-            }
-            return true;
-        },
-
-        isAppliedToSelection: function(win) {
-            var sel = api.getSelection(win);
-            return this.isAppliedToRanges(sel.getAllRanges());
-        },
-
-        toggleRange: function(range) {
-            if (this.isAppliedToRange(range)) {
-                this.undoToRange(range);
-            } else {
-                this.applyToRange(range);
-            }
-        },
-
         toggleSelection: function(win) {
             if (this.isAppliedToSelection(win)) {
                 this.undoToSelection(win);
@@ -1041,39 +868,12 @@ rangy.createModule("ClassApplier", ["WrappedSelection"], function(api, module) {
             }
         },
 
-        getElementsWithClassIntersectingRange: function(range) {
-            var elements = [];
-            var applier = this;
-            range.getNodes([3], function(textNode) {
-                var el = applier.getSelfOrAncestorWithClass(textNode);
-                if (el && !contains(elements, el)) {
-                    elements.push(el);
-                }
-            });
-            return elements;
-        },
-
         detach: function() {}
     };
 
     function createClassApplier(className, options, tagNames) {
         return new ClassApplier(className, options, tagNames);
     }
-
-    ClassApplier.util = {
-        hasClass: hasClass,
-        addClass: addClass,
-        removeClass: removeClass,
-        hasSameClasses: haveSameClasses,
-        hasAllClasses: hasAllClasses,
-        replaceWithOwnChildren: replaceWithOwnChildrenPreservingPositions,
-        elementsHaveSameNonClassAttributes: elementsHaveSameNonClassAttributes,
-        elementHasNonClassAttributes: elementHasNonClassAttributes,
-        splitNodeAt: splitNodeAt,
-        isEditableElement: isEditableElement,
-        isEditingHost: isEditingHost,
-        isEditable: isEditable
-    };
 
     api.CssClassApplier = api.ClassApplier = ClassApplier;
     api.createCssClassApplier = api.createClassApplier = createClassApplier;
