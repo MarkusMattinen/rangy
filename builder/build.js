@@ -23,10 +23,7 @@ var uncompressedBuildDir;
 var coreFilename = "rangy-core.js";
 var modules = [
     "rangy-classapplier.js",
-    "rangy-serializer.js",
-    "rangy-selectionsaverestore.js",
     "rangy-textrange.js",
-    "rangy-highlighter.js"
 ];
 
 var allScripts = [coreFilename].concat(modules);
