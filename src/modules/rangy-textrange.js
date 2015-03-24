@@ -167,6 +167,7 @@ rangy.createModule("TextRange", ["WrappedSelection"], function(api, module) {
         caseSensitive: false,
         withinRange: null,
         wholeWordsOnly: false,
+        beginningOfWordsOnly: false,
         wrap: false,
         direction: "forward",
         wordOptions: null,
@@ -176,6 +177,7 @@ rangy.createModule("TextRange", ["WrappedSelection"], function(api, module) {
     var defaultExpandOptions = {
         wordOptions: null,
         characterOptions: null,
+        expandOnlyBackwards: false,
         trim: false,
         trimStart: true,
         trimEnd: true
@@ -1226,6 +1228,12 @@ rangy.createModule("TextRange", ["WrappedSelection"], function(api, module) {
         return !range.expand("word", { wordOptions: wordOptions });
     }
 
+    function isBeginningOfWord(startPos, endPos, wordOptions) {
+        var range = api.createRange(startPos.node);
+        range.setStartAndEnd(startPos.node, startPos.offset, endPos.node, endPos.offset);
+        return !range.expand("word", { wordOptions: wordOptions, expandOnlyBackwards: true });
+    }
+
     function findTextFromPosition(initialPos, searchTerm, isRegex, searchScopeRange, findOptions) {
         var backward = isDirectionBackward(findOptions.direction);
         var it = createCharacterIterator(
@@ -1241,7 +1249,14 @@ rangy.createModule("TextRange", ["WrappedSelection"], function(api, module) {
         function handleMatch(startIndex, endIndex) {
             var startPos = chars[startIndex].previousVisible();
             var endPos = chars[endIndex - 1];
-            var valid = (!findOptions.wholeWordsOnly || isWholeWord(startPos, endPos, findOptions.wordOptions));
+
+            var valid = true;
+
+            if (findOptions.wholeWordsOnly && !isWholeWord(startPos, endPos, findOptions.wordOptions)) {
+              valid = false;
+            } else if (findOptions.beginningOfWordsOnly && !isBeginningOfWord(startPos, endPos, findOptions.wordOptions)) {
+              valid = false;
+            }
 
             return {
                 startPos: startPos,
@@ -1328,32 +1343,36 @@ rangy.createModule("TextRange", ["WrappedSelection"], function(api, module) {
                     var startTokenizedTextProvider = createTokenizedTextProvider(startPos, characterOptions, wordOptions);
                     var startToken = startTokenizedTextProvider.nextEndToken();
                     var newStartPos = startToken.chars[0].previousVisible();
-                    var endToken, newEndPos;
-
-                    if (this.collapsed) {
-                        endToken = startToken;
-                    } else {
-                        var endTokenizedTextProvider = createTokenizedTextProvider(endPos, characterOptions, wordOptions);
-                        endToken = endTokenizedTextProvider.previousStartToken();
-                    }
-                    newEndPos = endToken.chars[endToken.chars.length - 1];
 
                     if (!newStartPos.equals(startPos)) {
                         this.setStart(newStartPos.node, newStartPos.offset);
                         moved = true;
                     }
-                    if (newEndPos && !newEndPos.equals(endPos)) {
-                        this.setEnd(newEndPos.node, newEndPos.offset);
-                        moved = true;
+
+                    if (!expandOptions.expandOnlyBackwards) {
+                      var endToken, newEndPos;
+
+                      if (this.collapsed) {
+                          endToken = startToken;
+                      } else {
+                          var endTokenizedTextProvider = createTokenizedTextProvider(endPos, characterOptions, wordOptions);
+                          endToken = endTokenizedTextProvider.previousStartToken();
+                      }
+
+                      newEndPos = endToken.chars[endToken.chars.length - 1];
+
+                      if (newEndPos && !newEndPos.equals(endPos)) {
+                          this.setEnd(newEndPos.node, newEndPos.offset);
+                          moved = true;
+                      }
+
+                      if (expandOptions.trim && expandOptions.trimEnd) {
+                        moved = this.trimEnd(characterOptions) || moved;
+                      }
                     }
 
-                    if (expandOptions.trim) {
-                        if (expandOptions.trimStart) {
-                            moved = this.trimStart(characterOptions) || moved;
-                        }
-                        if (expandOptions.trimEnd) {
-                            moved = this.trimEnd(characterOptions) || moved;
-                        }
+                    if (expandOptions.trim && expandOptions.trimStart) {
+                      moved = this.trimStart(characterOptions) || moved;
                     }
 
                     return moved;

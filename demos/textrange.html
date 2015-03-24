@@ -55,6 +55,7 @@
                     regexCheckBox = gEBI("regex"),
                     caseSensitiveCheckBox = gEBI("caseSensitive"),
                     wholeWordsOnlyCheckBox = gEBI("wholeWordsOnly"),
+                    beginningOfWordsOnlyCheckBox = gEBI("beginningOfWordsOnly"),
                     timer;
 
                 function doSearch() {
@@ -67,6 +68,7 @@
                     var options = {
                         caseSensitive: caseSensitive,
                         wholeWordsOnly: wholeWordsOnlyCheckBox.checked,
+                        beginningOfWordsOnly: beginningOfWordsOnlyCheckBox.checked,
                         withinRange: searchScopeRange,
                         direction: "forward" // This is redundant because "forward" is the default
                     };
@@ -118,6 +120,7 @@
                 regexCheckBox.onclick = scheduleSearch;
                 caseSensitiveCheckBox.onclick = scheduleSearch;
                 wholeWordsOnlyCheckBox.onclick = scheduleSearch;
+                beginningOfWordsOnlyCheckBox.onclick = scheduleSearch;
             }
         }
 
@@ -140,6 +143,8 @@
         <input type="checkbox" id="caseSensitive"> <label for="caseSensitive">Case sensitive</label>
         <br>
         <input type="checkbox" id="wholeWordsOnly"> <label for="wholeWordsOnly">Whole words</label>
+        <br>
+        <input type="checkbox" id="beginningOfWordsOnly"> <label for="beginningOfWordsOnly">Beginning of words</label>
     </div>
 
     <div id="content">
